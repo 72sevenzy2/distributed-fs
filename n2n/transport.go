@@ -116,6 +116,9 @@ func (n *TCPTransport) handleConn(conn net.Conn, outbound bool) error {
 		n.Logger.Info("INCOMING_CONNECTION", "addr", conn.RemoteAddr().String())
 
 		if err := n.Decoder.Decode(conn, &RPC); err != nil {
+			if errors.Is(err, net.ErrClosed) {
+				return err
+			}
 			conn.Close()
 			n.Logger.Error("ERR", "TCP_DECODING_ERR", err)
 			continue
