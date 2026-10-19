@@ -45,4 +45,6 @@ func main() {
 		server2.Stop()
 		return
 	}
+
+	select {}
 }
