@@ -8,8 +8,6 @@ import (
 type Node interface {
 	Send([]byte) error
 	net.Conn
-	//Close() error
-	//RemoteAddr() net.Addr
 }
 
 // TCPNode represents the remote nodes connection methodology.

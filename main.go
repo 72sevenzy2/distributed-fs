@@ -1,7 +1,9 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
+	"time"
 
 	"github.com/72sevenzy2/file-storage/n2n"
 )
@@ -13,6 +15,10 @@ func newServer(addr string, nodes ...string) *FileServer {
 		Handshakefn: &n2n.TCPHandshake{},
 	}
 
+	var s *FileServer
+	tcpOpts.OnPeer = func(p n2n.Peer) error {
+		return s.OnPeer(p)
+	}
 	tcp := n2n.NewTCPTransport(tcpOpts)
 
 	fileStoreOpts := FileServerOpts{
@@ -22,8 +28,7 @@ func newServer(addr string, nodes ...string) *FileServer {
 		bootStrapNodes:    nodes,
 	}
 
-	s := NewFileServer(fileStoreOpts)
-	tcpOpts.OnPeer = s.OnPeer
+	s = NewFileServer(fileStoreOpts)
 
 	return s
 }
@@ -35,15 +40,20 @@ func main() {
 	go func() {
 		if err := server.Run(); err != nil {
 			fmt.Println(err)
-			server.Stop()
-			return
 		}
 	}()
+	time.Sleep(2 * time.Second)
 
-	if err := server2.Run(); err != nil {
+	go func() {
+		if err := server2.Run(); err != nil {
+			fmt.Println(err)
+		}
+	}()
+	time.Sleep(2 * time.Second)
+
+	data := bytes.NewReader([]byte("some big data"))
+	if err := server2.StoreData("privatedata", data); err != nil {
 		fmt.Println(err)
-		server2.Stop()
-		return
 	}
 
 	select {}

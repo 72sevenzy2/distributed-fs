@@ -9,7 +9,7 @@ import (
 
 type Transport interface {
 	ListenAndAccept() error
-	Consume() <-chan Peer
+	Consume() <-chan RPC
 	Close() error
 	Dial(string) error
 }
@@ -31,7 +31,7 @@ type TCPTransport struct {
 	listener net.Listener
 
 	// TCPNodeCh represents a channel in which peers will send and receive data.
-	TCPNodeCh chan Peer
+	TCPNodeCh chan RPC
 }
 
 func NOPOnPeer(v Peer) error { return nil }
@@ -40,7 +40,7 @@ func NewTCPTransport(opts TCPTransportOpts) Transport {
 	return &TCPTransport{
 		TCPTransportOpts: opts,
 		Logger:           *slog.Default(),
-		TCPNodeCh:        make(chan Peer),
+		TCPNodeCh:        make(chan RPC),
 	}
 }
 
@@ -50,7 +50,7 @@ func (n *TCPTransport) Close() error {
 }
 
 // Consume() implements Transport interface.
-func (n *TCPTransport) Consume() <-chan Peer {
+func (n *TCPTransport) Consume() <-chan RPC {
 	return n.TCPNodeCh
 }
 
@@ -123,6 +123,6 @@ func (n *TCPTransport) handleConn(conn net.Conn, outbound bool) error {
 		RPC.From = conn.RemoteAddr().String()
 		peer.Conn = conn
 
-		n.TCPNodeCh <- *peer
+		n.TCPNodeCh <- RPC
 	}
 }

@@ -47,7 +47,12 @@ type Payload struct {
 	Data []byte
 }
 
+type Message struct {
+	Payload any
+}
+
 func (fs *FileServer) StoreData(key string, r io.Reader) error {
+	fmt.Println("store data reached")
 	if err := fs.store.Write(key, r); err != nil {
 		return err
 	}
@@ -99,7 +104,11 @@ func (fs *FileServer) loop() {
 	for {
 		select {
 		case msg := <-fs.Transport.Consume():
-			fmt.Println(msg)
+			fmt.Println("recv")
+			var p Message
+			if err := gob.NewDecoder(bytes.NewReader(msg.Payload)).Decode(&p); err != nil {
+				log.Fatal(err)
+			}
 		case <-fs.quitChan:
 			return
 		}
