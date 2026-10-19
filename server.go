@@ -47,6 +47,12 @@ type Payload struct {
 	Data []byte
 }
 
+// MessageStoreFile represents the File metadata in which is sent over the peer network for replication.
+type MessageStoreFile struct {
+	Key  string
+	Data []byte
+}
+
 type Message struct {
 	Payload any
 }
@@ -63,23 +69,31 @@ func (fs *FileServer) StoreData(key string, r io.Reader) error {
 		return err
 	}
 
-	p := &Payload{
-		Key:  key,
-		Data: buf.Bytes(),
+	p := Message{
+		Payload: MessageStoreFile{
+			Key:  key,
+			Data: buf.Bytes(),
+		},
 	}
-	fmt.Println(buf.Bytes())
 
-	return fs.broadcast(p)
+	return fs.broadcast(&p)
 }
 
-func (fs *FileServer) broadcast(p *Payload) error {
+func (fs *FileServer) broadcast(p *Message) error {
+	var payload bytes.Buffer
+	// encoding to bytes initially.
+	if err := gob.NewEncoder(&payload).Encode(p); err != nil {
+		return err
+	}
+
 	peers := []io.Writer{}
 	for _, peer := range fs.Peers {
 		peers = append(peers, peer)
 	}
 
 	mw := io.MultiWriter(peers...)
-	return gob.NewEncoder(mw).Encode(p)
+	// encode payload.Bytes() as the receiving gob.Decoder expects a byte slice.
+	return gob.NewEncoder(mw).Encode(payload.Bytes())
 }
 
 func (fs *FileServer) Stop() {
@@ -104,11 +118,11 @@ func (fs *FileServer) loop() {
 	for {
 		select {
 		case msg := <-fs.Transport.Consume():
-			fmt.Println("recv")
 			var p Message
 			if err := gob.NewDecoder(bytes.NewReader(msg.Payload)).Decode(&p); err != nil {
-				log.Fatal(err)
+				log.Fatalf("GOB decoding error %s", err)
 			}
+			fmt.Println(p.Payload)
 		case <-fs.quitChan:
 			return
 		}
@@ -141,4 +155,9 @@ func (fs *FileServer) Run() error {
 	fs.loop()
 
 	return nil
+}
+
+// preloading
+func init() {
+	gob.Register(MessageStoreFile{})
 }

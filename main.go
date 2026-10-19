@@ -11,7 +11,7 @@ import (
 func newServer(addr string, nodes ...string) *FileServer {
 	tcpOpts := n2n.TCPTransportOpts{
 		ListenAddr:  addr,
-		Decoder:     &n2n.NOPDecoder{},
+		Decoder:     &n2n.GOBDecoder{},
 		Handshakefn: &n2n.TCPHandshake{},
 	}
 
@@ -49,7 +49,6 @@ func main() {
 			fmt.Println(err)
 		}
 	}()
-	time.Sleep(2 * time.Second)
 
 	data := bytes.NewReader([]byte("some big data"))
 	if err := server2.StoreData("privatedata", data); err != nil {
