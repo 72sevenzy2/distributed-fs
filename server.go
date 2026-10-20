@@ -65,7 +65,7 @@ func (fs *FileServer) StoreData(key string, r io.Reader) error {
 		return err
 	}
 	p := Message{
-		Payload: MessageStoreFile{
+		Payload: &MessageStoreFile{
 			Key:  key,
 			Data: buf.Bytes(),
 		},
@@ -115,13 +115,26 @@ func (fs *FileServer) loop() {
 		case msg := <-fs.Transport.Consume():
 			var p Message
 			if err := gob.NewDecoder(bytes.NewReader(msg.Payload)).Decode(&p); err != nil {
-				log.Fatalf("GOB decoding error %s", err)
+				log.Printf("GOB decoding error %s", err)
 			}
-			fmt.Printf("%+v\n", p.Payload)
+			//		fmt.Printf("%+v\n", p.Payload)
+			if err := fs.handlePayload(&p); err != nil {
+				log.Println(err)
+			}
+
 		case <-fs.quitChan:
 			return
 		}
 	}
+}
+
+func (fs *FileServer) handlePayload(p *Message) error {
+	switch v := p.Payload.(type) {
+	case MessageStoreFile:
+		fmt.Printf("received data %+v\n", string(v.Data))
+	}
+
+	return nil
 }
 
 func (fs *FileServer) bootstrapNetwork() error {
