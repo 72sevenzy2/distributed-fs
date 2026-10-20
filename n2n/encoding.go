@@ -18,7 +18,6 @@ func (g *GOBDecoder) Decode(r io.Reader, v *RPC) error {
 	if err != nil {
 		return err
 	}
-	fmt.Println(string(v.Payload))
 	return nil
 }
 

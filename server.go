@@ -58,17 +58,12 @@ type Message struct {
 }
 
 func (fs *FileServer) StoreData(key string, r io.Reader) error {
-	fmt.Println("store data reached")
-	if err := fs.store.Write(key, r); err != nil {
-		return err
-	}
-
 	buf := new(bytes.Buffer)
-	_, err := io.Copy(buf, r)
-	if err != nil {
+	tee := io.TeeReader(r, buf)
+
+	if err := fs.store.Write(key, tee); err != nil {
 		return err
 	}
-
 	p := Message{
 		Payload: MessageStoreFile{
 			Key:  key,
@@ -122,7 +117,7 @@ func (fs *FileServer) loop() {
 			if err := gob.NewDecoder(bytes.NewReader(msg.Payload)).Decode(&p); err != nil {
 				log.Fatalf("GOB decoding error %s", err)
 			}
-			fmt.Println(p.Payload)
+			fmt.Printf("%+v\n", p.Payload)
 		case <-fs.quitChan:
 			return
 		}
