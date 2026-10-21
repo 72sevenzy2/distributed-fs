@@ -3,6 +3,7 @@ package n2n
 import (
 	"errors"
 	"fmt"
+	"log"
 	"log/slog"
 	"net"
 )
@@ -96,7 +97,11 @@ func (n *TCPTransport) acceptLoop() {
 			continue
 		}
 
-		go n.handleConn(conn, false)
+		go func() {
+			if err := n.handleConn(conn, false); err != nil {
+				log.Fatalf("err handling connection %s", err)
+			}
+		}()
 	}
 }
 
@@ -126,6 +131,10 @@ func (n *TCPTransport) handleConn(conn net.Conn, outbound bool) error {
 		RPC.From = conn.RemoteAddr().String()
 		peer.Conn = conn
 
+		peer.wg.Add(1)
+		fmt.Println("waiting for peer to stream.")
 		n.TCPNodeCh <- RPC
+		peer.wg.Wait()
+		fmt.Println("peer stream has concluded.")
 	}
 }

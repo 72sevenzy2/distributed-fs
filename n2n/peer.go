@@ -2,6 +2,7 @@ package n2n
 
 import (
 	"net"
+	"sync"
 )
 
 // Node represents a remote connection.
@@ -14,12 +15,15 @@ type Node interface {
 type Peer struct {
 	net.Conn
 	outbound bool
+
+	wg *sync.WaitGroup
 }
 
 func NewPeer(conn net.Conn, outbound bool) *Peer {
 	return &Peer{
 		Conn:     conn,
 		outbound: outbound,
+		wg:       &sync.WaitGroup{},
 	}
 }
 

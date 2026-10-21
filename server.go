@@ -58,20 +58,40 @@ type Message struct {
 }
 
 func (fs *FileServer) StoreData(key string, r io.Reader) error {
-	buf := new(bytes.Buffer)
-	tee := io.TeeReader(r, buf)
-
-	if err := fs.store.Write(key, tee); err != nil {
+	var buf bytes.Buffer
+	msg := Message{
+		Payload: []byte("test data"),
+	}
+	if err := gob.NewEncoder(&buf).Encode(msg); err != nil {
 		return err
 	}
-	p := Message{
-		Payload: &MessageStoreFile{
-			Key:  key,
-			Data: buf.Bytes(),
-		},
+
+	var wire bytes.Buffer
+	if err := gob.NewEncoder(&wire).Encode(buf.Bytes()); err != nil {
+		return err
 	}
 
-	return fs.broadcast(&p)
+	for _, peer := range fs.Peers {
+		if err := peer.Send(wire.Bytes()); err != nil {
+			return err
+		}
+	}
+
+	// buf := new(bytes.Buffer)
+	// tee := io.teereader(r, buf)
+	//
+	// if err := fs.store.Write(key, tee); err != nil {
+	// 	return err
+	// }
+	// p := Message{
+	// 	Payload: &MessageStoreFile{
+	// 		Key:  key,
+	// 		Data: buf.Bytes(),
+	// 	},
+	// }
+	//
+	// return fs.broadcast(&p)
+	return nil
 }
 
 func (fs *FileServer) broadcast(p *Message) error {
@@ -99,6 +119,7 @@ func (s *FileServer) OnPeer(p n2n.Peer) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.Peers[p.RemoteAddr().String()] = &p
+	fmt.Println(s.Peers)
 
 	log.Printf("connected with remote peer %s", p.RemoteAddr().String())
 	return nil
@@ -117,26 +138,36 @@ func (fs *FileServer) loop() {
 			if err := gob.NewDecoder(bytes.NewReader(msg.Payload)).Decode(&p); err != nil {
 				log.Printf("GOB decoding error %s", err)
 			}
-			//		fmt.Printf("%+v\n", p.Payload)
-			if err := fs.handlePayload(&p); err != nil {
-				log.Println(err)
+
+			peer, ok := fs.Peers[msg.From]
+			if !ok {
+				panic("peer not found in peer map")
+			}
+			fmt.Println(peer)
+
+			b := make([]byte, 10000) // blocks
+			if _, err := peer.Read(b); err != nil {
+				panic(err)
 			}
 
+			// if err := fs.handlePayload(&p); err != nil {
+			// 	log.Println(err)
+			// }
+			//
 		case <-fs.quitChan:
 			return
 		}
 	}
 }
 
-func (fs *FileServer) handlePayload(p *Message) error {
-	switch v := p.Payload.(type) {
-	case MessageStoreFile:
-		fmt.Printf("received data %+v\n", string(v.Data))
-	}
-
-	return nil
-}
-
+//	func (fs *FileServer) handlePayload(p *Message) error {
+//		switch v := p.Payload.(type) {
+//		case MessageStoreFile:
+//			fmt.Printf("received data %+v\n", string(v.Data))
+//		}
+//
+//		return nil
+//	}
 func (fs *FileServer) bootstrapNetwork() error {
 	for _, addr := range fs.bootStrapNodes {
 		if addr == "" { // skip empty strings given as peer addresses

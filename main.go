@@ -42,13 +42,15 @@ func main() {
 			fmt.Println(err)
 		}
 	}()
-	time.Sleep(2 * time.Second)
+	time.Sleep(1 * time.Second)
 
 	go func() {
 		if err := server2.Run(); err != nil {
 			fmt.Println(err)
 		}
 	}()
+
+	time.Sleep(1 * time.Second)
 
 	data := bytes.NewReader([]byte("some big data"))
 	if err := server2.StoreData("privatedata", data); err != nil {
