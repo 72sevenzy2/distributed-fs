@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"sync"
+	"time"
 
 	"github.com/72sevenzy2/file-storage/n2n"
 )
@@ -77,6 +78,15 @@ func (fs *FileServer) StoreData(key string, r io.Reader) error {
 		}
 	}
 
+	time.Sleep(time.Second * 3)
+
+	payload := []byte("this is a large file")
+	for _, peer := range fs.Peers {
+		if err := peer.Send(payload); err != nil {
+			return err
+		}
+	}
+
 	// buf := new(bytes.Buffer)
 	// tee := io.teereader(r, buf)
 	//
@@ -138,6 +148,7 @@ func (fs *FileServer) loop() {
 			if err := gob.NewDecoder(bytes.NewReader(msg.Payload)).Decode(&p); err != nil {
 				log.Printf("GOB decoding error %s", err)
 			}
+			fmt.Printf("received %s\n", string(p.Payload.([]byte)))
 
 			peer, ok := fs.Peers[msg.From]
 			if !ok {
@@ -149,6 +160,8 @@ func (fs *FileServer) loop() {
 			if _, err := peer.Read(b); err != nil {
 				panic(err)
 			}
+
+			fmt.Printf("received big data %s\n", string(b))
 
 			// if err := fs.handlePayload(&p); err != nil {
 			// 	log.Println(err)
