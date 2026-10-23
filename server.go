@@ -162,6 +162,7 @@ func (fs *FileServer) loop() {
 			}
 
 			fmt.Printf("received big data %s\n", string(b))
+			peer.Wg.Done()
 
 			// if err := fs.handlePayload(&p); err != nil {
 			// 	log.Println(err)

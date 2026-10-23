@@ -16,14 +16,14 @@ type Peer struct {
 	net.Conn
 	outbound bool
 
-	wg *sync.WaitGroup
+	Wg *sync.WaitGroup
 }
 
 func NewPeer(conn net.Conn, outbound bool) *Peer {
 	return &Peer{
 		Conn:     conn,
 		outbound: outbound,
-		wg:       &sync.WaitGroup{},
+		Wg:       &sync.WaitGroup{},
 	}
 }
 

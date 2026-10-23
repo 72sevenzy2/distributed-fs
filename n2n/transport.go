@@ -131,10 +131,10 @@ func (n *TCPTransport) handleConn(conn net.Conn, outbound bool) error {
 		RPC.From = conn.RemoteAddr().String()
 		peer.Conn = conn
 
-		peer.wg.Add(1)
+		peer.Wg.Add(1)
 		fmt.Println("waiting for peer to stream.")
 		n.TCPNodeCh <- RPC
-		peer.wg.Wait()
+		peer.Wg.Wait()
 		fmt.Println("peer stream has concluded.")
 	}
 }
