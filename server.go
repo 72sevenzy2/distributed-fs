@@ -7,7 +7,6 @@ import (
 	"io"
 	"log"
 	"sync"
-	"time"
 
 	"github.com/72sevenzy2/file-storage/n2n"
 )
@@ -42,12 +41,6 @@ func NewFileServer(fs FileServerOpts) *FileServer {
 	}
 }
 
-// Payload is the data which will be sent between peer communication.
-type Payload struct {
-	Key  string
-	Data []byte
-}
-
 // MessageStoreFile represents the File metadata in which is sent over the peer network for replication.
 type MessageStoreFile struct {
 	Key  string
@@ -61,7 +54,9 @@ type Message struct {
 func (fs *FileServer) StoreData(key string, r io.Reader) error {
 	var buf bytes.Buffer
 	msg := Message{
-		Payload: []byte("test data"),
+		Payload: MessageStoreFile{
+			Key: key,
+		},
 	}
 	if err := gob.NewEncoder(&buf).Encode(msg); err != nil {
 		return err
@@ -77,15 +72,15 @@ func (fs *FileServer) StoreData(key string, r io.Reader) error {
 			return err
 		}
 	}
-
-	time.Sleep(time.Second * 3)
-
-	payload := []byte("this is a large file")
-	for _, peer := range fs.Peers {
-		if err := peer.Send(payload); err != nil {
-			return err
-		}
-	}
+	//
+	// time.Sleep(time.Second * 3)
+	//
+	// payload := []byte("this is a large file")
+	// for _, peer := range fs.Peers {
+	// 	if err := peer.Send(payload); err != nil {
+	// 		return err
+	// 	}
+	// }
 
 	// buf := new(bytes.Buffer)
 	// tee := io.teereader(r, buf)
@@ -148,22 +143,26 @@ func (fs *FileServer) loop() {
 			if err := gob.NewDecoder(bytes.NewReader(msg.Payload)).Decode(&p); err != nil {
 				log.Printf("GOB decoding error %s", err)
 			}
-			fmt.Printf("received %s\n", string(p.Payload.([]byte)))
-
-			peer, ok := fs.Peers[msg.From]
-			if !ok {
-				panic("peer not found in peer map")
-			}
-			fmt.Println(peer)
-
-			b := make([]byte, 10000) // blocks
-			if _, err := peer.Read(b); err != nil {
+			if err := fs.handlePayload(msg.From, &p); err != nil {
 				panic(err)
 			}
 
-			fmt.Printf("received big data %s\n", string(b))
-			peer.Wg.Done()
-
+			// fmt.Printf("received %s\n", p.Payload)
+			//
+			// peer, ok := fs.Peers[msg.From]
+			// if !ok {
+			// 	panic("peer not found in peer map")
+			// }
+			// fmt.Println(peer)
+			//
+			// b := make([]byte, 10000) // blocks
+			// if _, err := peer.Read(b); err != nil {
+			// 	panic(err)
+			// }
+			//
+			// fmt.Printf("received big data %s\n", string(b))
+			// peer.Wg.Done()
+			//
 			// if err := fs.handlePayload(&p); err != nil {
 			// 	log.Println(err)
 			// }
@@ -174,14 +173,21 @@ func (fs *FileServer) loop() {
 	}
 }
 
-//	func (fs *FileServer) handlePayload(p *Message) error {
-//		switch v := p.Payload.(type) {
-//		case MessageStoreFile:
-//			fmt.Printf("received data %+v\n", string(v.Data))
-//		}
-//
-//		return nil
-//	}
+func (fs *FileServer) handlePayload(from string, p *Message) error {
+	switch v := p.Payload.(type) {
+	case MessageStoreFile:
+		return fs.handleMessageStoreFile(from, v)
+	}
+
+	return nil
+}
+
+func (fs *FileServer) handleMessageStoreFile(src string, store MessageStoreFile) error {
+	fmt.Println("handleMessageStoreFile:", src)
+
+	return nil
+}
+
 func (fs *FileServer) bootstrapNetwork() error {
 	for _, addr := range fs.bootStrapNodes {
 		if addr == "" { // skip empty strings given as peer addresses
