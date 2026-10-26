@@ -44,6 +44,7 @@ func NewFileServer(fs FileServerOpts) *FileServer {
 // MessageStoreFile represents the File metadata in which is sent over the peer network for replication.
 type MessageStoreFile struct {
 	Key  string
+	Size int64
 	Data []byte
 }
 
@@ -52,10 +53,16 @@ type Message struct {
 }
 
 func (fs *FileServer) StoreData(key string, r io.Reader) error {
+	data, err := io.ReadAll(r)
+	if err != nil {
+		return err
+	}
 	var buf bytes.Buffer
 	msg := Message{
 		Payload: MessageStoreFile{
-			Key: key,
+			Key:  key,
+			Data: data,
+			Size: int64(len(data)),
 		},
 	}
 	if err := gob.NewEncoder(&buf).Encode(msg); err != nil {
@@ -146,27 +153,6 @@ func (fs *FileServer) loop() {
 			if err := fs.handlePayload(msg.From, &p); err != nil {
 				panic(err)
 			}
-
-			// fmt.Printf("received %s\n", p.Payload)
-			//
-			// peer, ok := fs.Peers[msg.From]
-			// if !ok {
-			// 	panic("peer not found in peer map")
-			// }
-			// fmt.Println(peer)
-			//
-			// b := make([]byte, 10000) // blocks
-			// if _, err := peer.Read(b); err != nil {
-			// 	panic(err)
-			// }
-			//
-			// fmt.Printf("received big data %s\n", string(b))
-			// peer.Wg.Done()
-			//
-			// if err := fs.handlePayload(&p); err != nil {
-			// 	log.Println(err)
-			// }
-			//
 		case <-fs.quitChan:
 			return
 		}
@@ -183,9 +169,17 @@ func (fs *FileServer) handlePayload(from string, p *Message) error {
 }
 
 func (fs *FileServer) handleMessageStoreFile(src string, store MessageStoreFile) error {
-	fmt.Println("handleMessageStoreFile:", src)
+	peer, ok := fs.Peers[src]
+	if !ok {
+		return fmt.Errorf("peer %s not found in peer list.", src)
+	}
+	defer peer.Wg.Done()
 
-	return nil
+	if int64(len(store.Data)) != store.Size {
+		return fmt.Errorf("file size mismatched; expected %d bytes, got %d bytes.", store.Size, len(store.Data))
+	}
+
+	return fs.store.Write(store.Key, bytes.NewReader(store.Data))
 }
 
 func (fs *FileServer) bootstrapNetwork() error {
