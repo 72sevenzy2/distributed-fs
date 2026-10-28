@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"sync"
+	"time"
 
 	"github.com/72sevenzy2/file-storage/n2n"
 )
@@ -79,15 +80,17 @@ func (fs *FileServer) StoreData(key string, r io.Reader) error {
 			return err
 		}
 	}
-	//
-	// time.Sleep(time.Second * 3)
-	//
-	// payload := []byte("this is a large file")
-	// for _, peer := range fs.Peers {
-	// 	if err := peer.Send(payload); err != nil {
-	// 		return err
-	// 	}
-	// }
+
+	time.Sleep(time.Second * 3)
+
+	payload := []byte("this is a large file")
+	for _, peer := range fs.Peers {
+		n, err := io.Copy(peer, bytes.NewReader(payload))
+		if err != nil {
+			return err
+		}
+		fmt.Println("received and written to disk: ", n)
+	}
 
 	// buf := new(bytes.Buffer)
 	// tee := io.teereader(r, buf)
