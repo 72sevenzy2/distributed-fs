@@ -46,7 +46,6 @@ func NewFileServer(fs FileServerOpts) *FileServer {
 type MessageStoreFile struct {
 	Key  string
 	Size int64
-	Data []byte
 }
 
 type Message struct {
@@ -54,16 +53,11 @@ type Message struct {
 }
 
 func (fs *FileServer) StoreData(key string, r io.Reader) error {
-	data, err := io.ReadAll(r)
-	if err != nil {
-		return err
-	}
 	var buf bytes.Buffer
 	msg := Message{
 		Payload: MessageStoreFile{
 			Key:  key,
-			Data: data,
-			Size: int64(len(data)),
+			Size: 13,
 		},
 	}
 	if err := gob.NewEncoder(&buf).Encode(msg); err != nil {
@@ -83,9 +77,8 @@ func (fs *FileServer) StoreData(key string, r io.Reader) error {
 
 	time.Sleep(time.Second * 3)
 
-	payload := []byte("this is a large file")
 	for _, peer := range fs.Peers {
-		n, err := io.Copy(peer, bytes.NewReader(payload))
+		n, err := io.Copy(peer, r)
 		if err != nil {
 			return err
 		}
@@ -176,13 +169,12 @@ func (fs *FileServer) handleMessageStoreFile(src string, store MessageStoreFile)
 	if !ok {
 		return fmt.Errorf("peer %s not found in peer list.", src)
 	}
-	defer peer.Wg.Done()
-
-	if int64(len(store.Data)) != store.Size {
-		return fmt.Errorf("file size mismatched; expected %d bytes, got %d bytes.", store.Size, len(store.Data))
+	if err := fs.store.Write(store.Key, io.LimitReader(peer, store.Size)); err != nil {
+		return err
 	}
 
-	return fs.store.Write(store.Key, bytes.NewReader(store.Data))
+	defer peer.Wg.Done()
+	return nil
 }
 
 func (fs *FileServer) bootstrapNetwork() error {
